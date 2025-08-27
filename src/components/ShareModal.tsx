@@ -29,8 +29,9 @@ export function ShareModal({
   const { toast } = useToast();
 
   const baseUrl = window.location.origin + window.location.pathname;
-  const viewOnlyUrl = `${baseUrl}?id=${organizationId}&access=view`;
-  const editAccessUrl = `${baseUrl}?id=${organizationId}&access=edit`;
+  const encodedOrgName = encodeURIComponent(organizationName);
+  const viewOnlyUrl = `${baseUrl}?id=${organizationId}&access=view&name=${encodedOrgName}`;
+  const editAccessUrl = `${baseUrl}?id=${organizationId}&access=edit&name=${encodedOrgName}`;
 
   const copyToClipboard = async (text: string, type: 'view' | 'edit') => {
     try {
@@ -104,7 +105,7 @@ export function ShareModal({
                 <Label className="text-sm font-medium">Edit Access</Label>
               </div>
               <p className="text-xs text-muted-foreground">
-                Recipients can view, add, edit, and delete posts for this organization.
+                Recipients can view, add, edit, and delete posts for this organization. They cannot manage organizations.
               </p>
               <div className="flex gap-2">
                 <Input

@@ -3,6 +3,7 @@ import { CalendarHeader } from "@/components/CalendarHeader";
 import { CalendarGrid } from "@/components/CalendarGrid";
 import { PostModal, Post } from "@/components/PostModal";
 import { ShareModal } from "@/components/ShareModal";
+import { OrganizationModal } from "@/components/OrganizationModal";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -19,6 +20,7 @@ const Index = () => {
   const [selectedPost, setSelectedPost] = useState<Post | undefined>();
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
   
   // Local storage hooks
   const [organizations, setOrganizations] = useLocalStorage<Organization[]>('social-calendar-orgs', [
@@ -29,6 +31,7 @@ const Index = () => {
   
   // Access control from URL parameters
   const [accessMode, setAccessMode] = useState<'full' | 'edit' | 'view'>('full');
+  const [sharedOrgName, setSharedOrgName] = useState<string>('');
   const { toast } = useToast();
 
   // Check URL parameters for shared access
@@ -36,9 +39,14 @@ const Index = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const orgId = urlParams.get('id');
     const access = urlParams.get('access');
+    const orgName = urlParams.get('name');
     
     if (orgId && access) {
       setSelectedOrgId(orgId);
+      if (orgName) {
+        setSharedOrgName(decodeURIComponent(orgName));
+      }
+      
       if (access === 'view') {
         setAccessMode('view');
         toast({
@@ -57,6 +65,9 @@ const Index = () => {
 
   const selectedOrg = organizations.find(org => org.id === selectedOrgId) || organizations[0];
   const orgPosts = posts.filter(post => post.organizationId === selectedOrgId);
+  
+  // Use shared org name if available, otherwise use selected org name
+  const displayOrgName = sharedOrgName || selectedOrg?.name || 'Unknown Organization';
 
   const handleMonthChange = (direction: 'prev' | 'next') => {
     setCurrentDate(prev => {
@@ -122,32 +133,31 @@ const Index = () => {
     }
   };
 
-  const handleAddOrganization = () => {
-    const name = prompt("Enter organization name:");
-    if (name && name.trim()) {
-      const newOrg: Organization = {
-        id: Date.now().toString(),
-        name: name.trim()
-      };
-      setOrganizations(prev => [...prev, newOrg]);
-      setSelectedOrgId(newOrg.id);
-      toast({
-        title: "Organization added",
-        description: `${name} has been added successfully.`,
-      });
-    }
+  const handleAddOrganization = (name: string) => {
+    const newOrg: Organization = {
+      id: Date.now().toString(),
+      name: name.trim()
+    };
+    setOrganizations(prev => [...prev, newOrg]);
+    setSelectedOrgId(newOrg.id);
+    toast({
+      title: "Organization added",
+      description: `${name} has been added successfully.`,
+    });
   };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <CalendarHeader
-        currentDate={currentDate}
-        organizations={organizations}
-        selectedOrganization={selectedOrgId}
-        onMonthChange={handleMonthChange}
-        onOrganizationChange={setSelectedOrgId}
-        onShare={() => setIsShareModalOpen(true)}
-      />
+        <CalendarHeader
+          currentDate={currentDate}
+          organizations={organizations}
+          selectedOrganization={selectedOrgId}
+          onMonthChange={handleMonthChange}
+          onOrganizationChange={accessMode === 'edit' ? undefined : setSelectedOrgId}
+          onShare={() => setIsShareModalOpen(true)}
+          displayName={displayOrgName}
+          accessMode={accessMode}
+        />
 
       <div className="flex-1 flex">
         <CalendarGrid
@@ -162,7 +172,7 @@ const Index = () => {
       {accessMode === 'full' && (
         <div className="fixed bottom-6 right-6">
           <Button
-            onClick={handleAddOrganization}
+            onClick={() => setIsOrgModalOpen(true)}
             className="rounded-full shadow-lg gap-2"
             size="lg"
           >
@@ -187,7 +197,13 @@ const Index = () => {
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         organizationId={selectedOrgId}
-        organizationName={selectedOrg?.name || 'Unknown Organization'}
+        organizationName={displayOrgName}
+      />
+
+      <OrganizationModal
+        isOpen={isOrgModalOpen}
+        onClose={() => setIsOrgModalOpen(false)}
+        onSave={handleAddOrganization}
       />
 
       {/* Status Legend */}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,7 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2 } from "lucide-react";
+import { Trash2, Upload, X, Image as ImageIcon } from "lucide-react";
+import { useImageUpload } from "@/hooks/useImageUpload";
+import { useToast } from "@/hooks/use-toast";
 
 export interface Post {
   id: string;
@@ -49,24 +51,81 @@ export function PostModal({
   const [content, setContent] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
   const [status, setStatus] = useState<Post['status']>('process');
+  const [uploadedImageUrl, setUploadedImageUrl] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const { uploadImage, uploading, error } = useImageUpload();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (post) {
       setContent(post.content);
       setMediaUrl(post.mediaUrl);
       setStatus(post.status);
+      setUploadedImageUrl('');
     } else {
       setContent('');
       setMediaUrl('');
       setStatus('process');
+      setUploadedImageUrl('');
     }
   }, [post, isOpen]);
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const imageUrl = await uploadImage(file);
+    if (imageUrl) {
+      setUploadedImageUrl(imageUrl);
+      setMediaUrl(''); // Clear the manual URL input
+      toast({
+        title: "Image uploaded",
+        description: "Your image has been uploaded successfully.",
+      });
+    } else if (error) {
+      toast({
+        title: "Upload failed",
+        description: error,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const removeUploadedImage = () => {
+    setUploadedImageUrl('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const finalImageUrl = uploadedImageUrl || mediaUrl;
 
   const handleSave = () => {
     onSave({
       date: selectedDate,
       content,
-      mediaUrl,
+      mediaUrl: finalImageUrl,
       status,
       organizationId
     });
@@ -102,13 +161,68 @@ export function PostModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mediaUrl">Image/Media URL</Label>
-            <Input
-              id="mediaUrl"
-              placeholder="https://example.com/image.jpg"
-              value={mediaUrl}
-              onChange={(e) => setMediaUrl(e.target.value)}
-            />
+            <Label>Image/Media</Label>
+            
+            {/* Image Upload Section */}
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex-1"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {uploading ? 'Uploading...' : 'Upload Image'}
+                </Button>
+                
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </div>
+              
+              {/* Uploaded Image Preview */}
+              {uploadedImageUrl && (
+                <div className="relative">
+                  <img
+                    src={uploadedImageUrl}
+                    alt="Uploaded preview"
+                    className="w-full h-32 object-cover rounded-md border"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={removeUploadedImage}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              
+              {/* Manual URL Input (only show if no uploaded image) */}
+              {!uploadedImageUrl && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-px bg-border flex-1"></div>
+                    <span className="text-xs text-muted-foreground">or paste URL</span>
+                    <div className="h-px bg-border flex-1"></div>
+                  </div>
+                  <Input
+                    id="mediaUrl"
+                    placeholder="https://example.com/image.jpg"
+                    value={mediaUrl}
+                    onChange={(e) => setMediaUrl(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -125,11 +239,11 @@ export function PostModal({
             </Select>
           </div>
 
-          {mediaUrl && (
+          {finalImageUrl && !uploadedImageUrl && (
             <div className="space-y-2">
               <Label>Preview</Label>
               <img
-                src={mediaUrl}
+                src={finalImageUrl}
                 alt="Media preview"
                 className="w-full h-32 object-cover rounded-md border"
                 onError={(e) => {
