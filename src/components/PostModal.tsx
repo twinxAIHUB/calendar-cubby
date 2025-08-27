@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Upload, X, Image as ImageIcon, Eye } from "lucide-react";
+import { Trash2, Upload, X, Image as ImageIcon, Eye, MessageSquare, CheckCircle, XCircle } from "lucide-react";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { useToast } from "@/hooks/use-toast";
 import { SocialPreview } from "./SocialPreview";
@@ -31,15 +31,33 @@ export interface Post {
   organizationId: string;
 }
 
+interface Comment {
+  id: string;
+  content: string;
+  created_by: string;
+  created_at: string;
+}
+
+interface Review {
+  id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by: string;
+  review_notes?: string;
+  created_at: string;
+}
+
 interface PostModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (post: Omit<Post, 'id'>) => void;
   onDelete?: () => void;
-  post?: Post;
+  onAddComment?: (postId: string, content: string, createdBy: string) => void;
+  onAddReview?: (postId: string, status: 'approved' | 'rejected', reviewNotes?: string, reviewedBy?: string) => void;
+  post?: Post & { comments?: Comment[]; reviews?: Review[] };
   selectedDate: string;
   organizationId: string;
   organizationName: string;
+  shareMode?: boolean;
 }
 
 export function PostModal({
@@ -47,14 +65,20 @@ export function PostModal({
   onClose,
   onSave,
   onDelete,
+  onAddComment,
+  onAddReview,
   post,
   selectedDate,
   organizationId,
-  organizationName
+  organizationName,
+  shareMode = false
 }: PostModalProps) {
   const [content, setContent] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
   const [status, setStatus] = useState<Post['status']>('process');
+  const [newComment, setNewComment] = useState("");
+  const [reviewerName, setReviewerName] = useState("");
+  const [reviewNotes, setReviewNotes] = useState("");
   const [uploadedImageUrl, setUploadedImageUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -143,6 +167,30 @@ export function PostModal({
     }
   };
 
+  const handleAddComment = () => {
+    if (newComment.trim() && post?.id && onAddComment) {
+      onAddComment(post.id, newComment.trim(), reviewerName || 'Anonymous');
+      setNewComment("");
+      setReviewerName("");
+    }
+  };
+
+  const handleApprove = () => {
+    if (post?.id && onAddReview) {
+      onAddReview(post.id, 'approved', reviewNotes || undefined, reviewerName || 'Anonymous');
+      setReviewNotes("");
+      setReviewerName("");
+    }
+  };
+
+  const handleReject = () => {
+    if (post?.id && onAddReview) {
+      onAddReview(post.id, 'rejected', reviewNotes || undefined, reviewerName || 'Anonymous');
+      setReviewNotes("");
+      setReviewerName("");
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
@@ -153,9 +201,11 @@ export function PostModal({
         </DialogHeader>
         
         <Tabs defaultValue="edit" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="edit">Edit Post</TabsTrigger>
             <TabsTrigger value="preview">Preview</TabsTrigger>
+            <TabsTrigger value="comments">Comments</TabsTrigger>
+            <TabsTrigger value="review">Review</TabsTrigger>
           </TabsList>
           
           <TabsContent value="edit" className="space-y-4 py-4">
@@ -304,6 +354,122 @@ export function PostModal({
                   organizationName={organizationName}
                 />
               </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="comments" className="space-y-4 py-4">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Comments</h3>
+              
+              {post?.comments && post.comments.length > 0 ? (
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {post.comments.map((comment) => (
+                    <div key={comment.id} className="border rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MessageSquare className="h-4 w-4" />
+                        <span className="font-medium">{comment.created_by}</span>
+                        <span className="text-sm text-gray-500">
+                          {new Date(comment.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-sm">{comment.content}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-4">No comments yet</p>
+              )}
+
+              <div className="border-t pt-4 space-y-3">
+                <div>
+                  <Label htmlFor="reviewer-name">Your Name (optional)</Label>
+                  <Input
+                    id="reviewer-name"
+                    value={reviewerName}
+                    onChange={(e) => setReviewerName(e.target.value)}
+                    placeholder="Enter your name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="new-comment">Add Comment</Label>
+                  <Textarea
+                    id="new-comment"
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Add your feedback..."
+                    rows={3}
+                  />
+                </div>
+                <Button onClick={handleAddComment} disabled={!newComment.trim()}>
+                  Add Comment
+                </Button>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="review" className="space-y-4 py-4">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Post Review</h3>
+              
+              {post?.reviews && post.reviews.length > 0 ? (
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {post.reviews.map((review) => (
+                    <div key={review.id} className="border rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        {review.status === 'approved' ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-600" />
+                        )}
+                        <span className="font-medium capitalize">{review.status}</span>
+                        <span className="text-sm text-gray-500">by {review.reviewed_by}</span>
+                        <span className="text-sm text-gray-500">
+                          {new Date(review.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      {review.review_notes && (
+                        <p className="text-sm">{review.review_notes}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-4">No reviews yet</p>
+              )}
+
+              {shareMode && (
+                <div className="border-t pt-4 space-y-3">
+                  <div>
+                    <Label htmlFor="reviewer-name-review">Your Name (optional)</Label>
+                    <Input
+                      id="reviewer-name-review"
+                      value={reviewerName}
+                      onChange={(e) => setReviewerName(e.target.value)}
+                      placeholder="Enter your name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="review-notes">Review Notes (optional)</Label>
+                    <Textarea
+                      id="review-notes"
+                      value={reviewNotes}
+                      onChange={(e) => setReviewNotes(e.target.value)}
+                      placeholder="Add your review notes..."
+                      rows={3}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleApprove} className="bg-green-600 hover:bg-green-700">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Approve Post
+                    </Button>
+                    <Button onClick={handleReject} variant="destructive">
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Reject Post
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>

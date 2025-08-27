@@ -9,6 +9,7 @@ import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Organization {
   id: string;
@@ -26,6 +27,9 @@ const Index = () => {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+  const [shareMode, setShareMode] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [accessType, setAccessType] = useState<'view' | 'edit'>('view');
   
   // Supabase data hooks
   const {
@@ -52,26 +56,35 @@ const Index = () => {
     }
   }, [organizations, selectedOrgId]);
 
-  // Check URL parameters for shared access
+  // Check URL parameters for share token
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const orgId = urlParams.get('id');
-    const access = urlParams.get('access');
-    const orgName = urlParams.get('name');
+    const token = urlParams.get('token');
     
-    if (orgId && access) {
-      setSelectedOrgId(orgId);
-      if (orgName) {
-        setSharedOrgName(decodeURIComponent(orgName));
-      }
-      
-      if (access === 'view') {
-        setAccessMode('view');
-      } else if (access === 'edit') {
-        setAccessMode('edit');
-      }
+    if (token) {
+      setShareToken(token);
+      setShareMode(true);
+      verifyShareToken(token);
     }
   }, []);
+
+  const verifyShareToken = async (token: string) => {
+    try {
+      const response = await fetch(
+        `https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${token}&action=verify`
+      );
+      const data = await response.json();
+      
+      if (data.valid) {
+        setSelectedOrgId(data.organization_id);
+        setAccessType(data.access_type);
+        setAccessMode(data.access_type);
+      }
+    } catch (error) {
+      console.error('Share token verification failed:', error);
+      setShareMode(false);
+    }
+  };
 
   const currentOrg = organizations.find(org => org.id === selectedOrgId);
   const displayOrgName = sharedOrgName || currentOrg?.name || 'Unknown Organization';
@@ -131,6 +144,40 @@ const Index = () => {
     }
   };
 
+  const handleAddComment = async (postId: string, content: string, createdBy: string) => {
+    try {
+      if (shareMode && shareToken) {
+        await fetch(`https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${shareToken}&action=add_comment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: postId, content, created_by: createdBy })
+        });
+      } else {
+        await supabase.from('post_comments').insert({ post_id: postId, content, created_by: createdBy });
+      }
+      toast({ title: "Success", description: "Comment added successfully" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add comment", variant: "destructive" });
+    }
+  };
+
+  const handleAddReview = async (postId: string, status: 'approved' | 'rejected', reviewNotes?: string, reviewedBy?: string) => {
+    try {
+      if (shareMode && shareToken) {
+        await fetch(`https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${shareToken}&action=add_review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: postId, status, review_notes: reviewNotes, reviewed_by: reviewedBy })
+        });
+      } else {
+        await supabase.from('post_reviews').insert({ post_id: postId, status, review_notes: reviewNotes, reviewed_by: reviewedBy });
+      }
+      toast({ title: "Success", description: `Post ${status} successfully` });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add review", variant: "destructive" });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -139,84 +186,77 @@ const Index = () => {
     );
   }
 
-  return (
-    <AuthGuard>
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto p-4 space-y-6">
-          {/* Header */}
-          <CalendarHeader
-            currentDate={currentDate}
-            onDateChange={setCurrentDate}
-            organizations={organizations}
-            selectedOrgId={selectedOrgId}
-            onOrgChange={setSelectedOrgId}
-            accessMode={accessMode}
-            onOpenOrgModal={() => setIsOrgModalOpen(true)}
-            onOpenShareModal={() => setIsShareModalOpen(true)}
-          />
+  const content = (
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-4 space-y-6">
+        <CalendarHeader
+          currentDate={currentDate}
+          onDateChange={setCurrentDate}
+          organizations={organizations}
+          selectedOrgId={selectedOrgId}
+          onOrgChange={setSelectedOrgId}
+          accessMode={accessMode}
+          onOpenOrgModal={() => setIsOrgModalOpen(true)}
+          onOpenShareModal={() => setIsShareModalOpen(true)}
+        />
 
-          {/* Calendar */}
-          <CalendarGrid
-            currentDate={currentDate}
-            posts={currentPosts}
-            onSelectDate={(date) => {
-              setSelectedDate(date);
-              setSelectedPost(undefined);
-              if (accessMode !== 'view') {
-                setIsPostModalOpen(true);
-              }
-            }}
-            onSelectPost={(post) => {
-              setSelectedPost(post);
-              setSelectedDate(post.date);
-              if (accessMode !== 'view') {
-                setIsPostModalOpen(true);
-              }
-            }}
-            selectedOrgId={selectedOrgId}
-          />
+        <CalendarGrid
+          currentDate={currentDate}
+          posts={currentPosts}
+          onSelectDate={(date) => {
+            setSelectedDate(date);
+            setSelectedPost(undefined);
+            if (accessMode !== 'view') {
+              setIsPostModalOpen(true);
+            }
+          }}
+          onSelectPost={(post) => {
+            setSelectedPost(post);
+            setSelectedDate(post.date);
+            setIsPostModalOpen(true);
+          }}
+          selectedOrgId={selectedOrgId}
+        />
 
-          {/* Empty state for organizations */}
-          {organizations.length === 0 && accessMode === 'full' && (
-            <div className="text-center py-12">
-              <h3 className="text-lg font-medium text-foreground mb-2">No organizations yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first organization to start planning posts</p>
-              <Button onClick={() => setIsOrgModalOpen(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Organization
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* Modals */}
         <PostModal
           isOpen={isPostModalOpen}
           onClose={() => setIsPostModalOpen(false)}
           onSave={handleSavePost}
           onDelete={selectedPost ? handleDeletePost : undefined}
+          onAddComment={handleAddComment}
+          onAddReview={handleAddReview}
           post={selectedPost}
           selectedDate={selectedDate}
           organizationId={selectedOrgId}
           organizationName={displayOrgName}
+          shareMode={shareMode}
         />
 
-        <ShareModal
-          isOpen={isShareModalOpen}
-          onClose={() => setIsShareModalOpen(false)}
-          organizationId={selectedOrgId}
-          organizationName={displayOrgName}
-        />
-
-        <OrganizationModal
-          isOpen={isOrgModalOpen}
-          onClose={() => setIsOrgModalOpen(false)}
-          onSave={handleCreateOrganization}
-          onUpdate={handleUpdateOrganization}
-          onDelete={handleDeleteOrganization}
-          organization={currentOrg}
-        />
+        {!shareMode && (
+          <>
+            <ShareModal
+              isOpen={isShareModalOpen}
+              onClose={() => setIsShareModalOpen(false)}
+              organizationId={selectedOrgId}
+              organizationName={displayOrgName}
+            />
+            <OrganizationModal
+              isOpen={isOrgModalOpen}
+              onClose={() => setIsOrgModalOpen(false)}
+              onSave={handleCreateOrganization}
+              onUpdate={handleUpdateOrganization}
+              onDelete={handleDeleteOrganization}
+              organization={currentOrg}
+            />
+          </>
+        )}
       </div>
+    </div>
+  );
+
+  return shareMode ? content : (
+    <AuthGuard>
+      {content}
     </AuthGuard>
   );
 };
