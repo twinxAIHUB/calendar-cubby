@@ -3,15 +3,17 @@ import { Post } from "./PostModal";
 interface CalendarGridProps {
   currentDate: Date;
   posts: Post[];
-  onDateClick: (date: string) => void;
-  onPostClick: (post: Post) => void;
+  onSelectDate: (date: string) => void;
+  onSelectPost: (post: Post) => void;
+  selectedOrgId: string;
 }
 
 export function CalendarGrid({
   currentDate,
   posts,
-  onDateClick,
-  onPostClick
+  onSelectDate,
+  onSelectPost,
+  selectedOrgId
 }: CalendarGridProps) {
   const today = new Date();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -28,102 +30,94 @@ export function CalendarGrid({
 
   // Add days of the month
   for (let day = 1; day <= lastDayOfMonth.getDate(); day++) {
-    days.push(day);
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    days.push(date);
   }
 
-  const getDateString = (day: number) => {
-    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+  const formatDateString = (date: Date) => {
     return date.toISOString().split('T')[0];
   };
 
-  const getPostsForDate = (day: number) => {
-    const dateString = getDateString(day);
+  const getPostsForDate = (date: Date) => {
+    const dateString = formatDateString(date);
     return posts.filter(post => post.date === dateString);
   };
 
-  const isToday = (day: number) => {
-    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    return date.toDateString() === today.toDateString();
+  const isToday = (date: Date) => {
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
   };
 
-  const getStatusColor = (status: Post['status']) => {
+  const getStatusColor = (status: 'process' | 'scheduled' | 'posted') => {
     switch (status) {
       case 'process':
-        return 'bg-status-process';
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'scheduled':
-        return 'bg-status-scheduled';
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'posted':
-        return 'bg-status-posted';
+        return 'bg-green-100 text-green-800 border-green-200';
       default:
-        return 'bg-muted';
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
   return (
-    <div className="flex-1 bg-background">
-      {/* Week day headers */}
-      <div className="grid grid-cols-7 border-b border-border">
-        {weekDays.map(day => (
-          <div
-            key={day}
-            className="p-4 text-center text-sm font-medium text-calendar-header bg-muted"
-          >
+    <div className="bg-white rounded-lg border shadow-sm">
+      {/* Calendar Header */}
+      <div className="grid grid-cols-7 border-b">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+          <div key={day} className="p-4 text-center font-medium text-gray-500 bg-gray-50">
             {day}
           </div>
         ))}
       </div>
 
-      {/* Calendar grid */}
-      <div className="grid grid-cols-7 h-full">
-        {days.map((day, index) => (
-          <div
-            key={index}
-            className={`
-              border-r border-b border-border min-h-32 p-2 cursor-pointer
-              transition-colors hover:bg-calendar-hover
-              ${day ? 'bg-card' : 'bg-muted/30'}
-              ${day && isToday(day) ? 'bg-calendar-today/10 border-calendar-today' : ''}
-            `}
-            onClick={() => day && onDateClick(getDateString(day))}
-          >
-            {day && (
-              <>
-                <div className={`
-                  text-sm font-medium mb-2
-                  ${isToday(day) ? 'text-calendar-today font-bold' : 'text-foreground'}
-                `}>
-                  {day}
-                </div>
-                
-                <div className="space-y-1">
-                  {getPostsForDate(day).map((post) => (
-                    <div
-                      key={post.id}
-                      className={`
-                        text-xs p-1 rounded cursor-pointer
-                        transition-opacity hover:opacity-80
-                        text-white font-medium
-                        ${getStatusColor(post.status)}
-                      `}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onPostClick(post);
-                      }}
-                      title={post.content}
-                    >
-                      {post.content.length > 20 
-                        ? `${post.content.substring(0, 20)}...` 
-                        : post.content
-                      }
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        ))}
+      {/* Calendar Body */}
+      <div className="grid grid-cols-7">
+        {days.map((date, index) => {
+          if (!date) {
+            return <div key={index} className="h-32 border-r border-b" />;
+          }
+
+          const dayPosts = getPostsForDate(date);
+          const dateString = formatDateString(date);
+
+          return (
+            <div
+              key={index}
+              className={`h-32 border-r border-b p-2 cursor-pointer hover:bg-gray-50 transition-colors ${
+                isToday(date) ? 'bg-blue-50' : ''
+              }`}
+              onClick={() => onSelectDate(dateString)}
+            >
+              <div className={`text-sm font-medium ${isToday(date) ? 'text-blue-600' : 'text-gray-900'}`}>
+                {date.getDate()}
+              </div>
+              
+              <div className="mt-1 space-y-1 overflow-y-auto max-h-20">
+                {dayPosts.map((post) => (
+                  <div
+                    key={post.id}
+                    className={`text-xs px-2 py-1 rounded border cursor-pointer truncate ${getStatusColor(
+                      post.status
+                    )}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectPost(post);
+                    }}
+                    title={post.content}
+                  >
+                    {post.content.substring(0, 20)}
+                    {post.content.length > 20 ? '...' : ''}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
