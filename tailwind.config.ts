@@ -52,6 +52,16 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				status: {
+					process: 'hsl(var(--status-process))',
+					scheduled: 'hsl(var(--status-scheduled))',
+					posted: 'hsl(var(--status-posted))'
+				},
+				calendar: {
+					header: 'hsl(var(--calendar-header))',
+					today: 'hsl(var(--calendar-today))',
+					hover: 'hsl(var(--calendar-hover))'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
