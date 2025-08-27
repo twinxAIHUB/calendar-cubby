@@ -191,6 +191,7 @@ const Index = () => {
         post={selectedPost}
         selectedDate={selectedDate}
         organizationId={selectedOrgId}
+        organizationName={displayOrgName}
       />
 
       <ShareModal

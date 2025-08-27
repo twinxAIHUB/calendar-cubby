@@ -16,9 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Upload, X, Image as ImageIcon } from "lucide-react";
+import { Trash2, Upload, X, Image as ImageIcon, Eye } from "lucide-react";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { useToast } from "@/hooks/use-toast";
+import { SocialPreview } from "./SocialPreview";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export interface Post {
   id: string;
@@ -37,6 +39,7 @@ interface PostModalProps {
   post?: Post;
   selectedDate: string;
   organizationId: string;
+  organizationName: string;
 }
 
 export function PostModal({
@@ -46,7 +49,8 @@ export function PostModal({
   onDelete,
   post,
   selectedDate,
-  organizationId
+  organizationId,
+  organizationName
 }: PostModalProps) {
   const [content, setContent] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
@@ -141,14 +145,20 @@ export function PostModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {post ? 'Edit Post' : 'Create New Post'} - {new Date(selectedDate).toLocaleDateString()}
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
+        <Tabs defaultValue="edit" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="edit">Edit Post</TabsTrigger>
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="edit" className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="content">Post Content</Label>
             <Textarea
@@ -252,27 +262,51 @@ export function PostModal({
               />
             </div>
           )}
-        </div>
-
-        <div className="flex justify-between">
-          <div>
-            {post && onDelete && (
-              <Button variant="destructive" onClick={handleDelete} className="gap-2">
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </Button>
-            )}
-          </div>
           
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={!content.trim()}>
-              {post ? 'Update' : 'Create'} Post
-            </Button>
+          <div className="flex justify-between">
+            <div>
+              {post && onDelete && (
+                <Button variant="destructive" onClick={handleDelete} className="gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              )}
+            </div>
+            
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={!content.trim()}>
+                {post ? 'Update' : 'Create'} Post
+              </Button>
+            </div>
           </div>
-        </div>
+          </TabsContent>
+
+          <TabsContent value="preview" className="space-y-4 py-4">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-lg font-medium mb-4 text-center">Facebook Preview</h3>
+                <SocialPreview 
+                  content={content}
+                  mediaUrl={finalImageUrl}
+                  platform="facebook"
+                  organizationName={organizationName}
+                />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium mb-4 text-center">Instagram Preview</h3>
+                <SocialPreview 
+                  content={content}
+                  mediaUrl={finalImageUrl}
+                  platform="instagram"
+                  organizationName={organizationName}
+                />
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
