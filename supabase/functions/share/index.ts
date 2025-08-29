@@ -14,8 +14,14 @@ interface ShareTokenData {
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
+
+  console.log('Share function invoked:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  });
 
   try {
     // Use service role key to bypass RLS for share operations
@@ -28,10 +34,18 @@ Deno.serve(async (req) => {
     let token = url.searchParams.get('token');
     let action = url.searchParams.get('action');
 
+    console.log('Share function called:', { 
+      method: req.method, 
+      url: req.url, 
+      token: token, 
+      action: action 
+    });
+
     // If not in URL params, try to get from request body
-    if (!token || !action) {
+    if ((!token || !action) && req.method === 'POST') {
       try {
         const body = await req.json();
+        console.log('Request body:', body);
         token = token || body.token;
         action = action || body.action;
       } catch (e) {
@@ -40,6 +54,7 @@ Deno.serve(async (req) => {
     }
 
     if (!token) {
+      console.log('No token provided');
       return new Response(
         JSON.stringify({ error: 'Token is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

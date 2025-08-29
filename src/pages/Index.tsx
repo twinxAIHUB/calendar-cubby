@@ -74,9 +74,13 @@ const Index = () => {
 
   const verifyShareToken = async (token: string) => {
     try {
+      console.log('Verifying share token:', token);
+      
       const { data, error } = await supabase.functions.invoke('share', {
         body: { token, action: 'verify' }
       });
+      
+      console.log('Verification response:', { data, error });
       
       if (error) {
         console.error('Share token verification error:', error);
@@ -84,6 +88,7 @@ const Index = () => {
       }
       
       if (data?.valid) {
+        console.log('Token valid, setting up shared access');
         setSelectedOrgId(data.organization_id);
         setAccessType(data.access_type);
         setAccessMode(data.access_type);
@@ -91,6 +96,7 @@ const Index = () => {
         // Fetch shared data
         fetchSharedData(token);
       } else {
+        console.log('Token invalid');
         setShareMode(false);
         setShareTokenValidated(false);
         toast({
