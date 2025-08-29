@@ -314,6 +314,12 @@ const Index = () => {
     }
   };
 
+  const openEditOrgModal = () => {
+    if (currentOrg) {
+      setIsOrgModalOpen(true);
+    }
+  };
+
   // Show loading only when not in share mode
   if (loading && !shareMode) {
     return (
@@ -335,6 +341,8 @@ const Index = () => {
           accessMode={accessMode}
           onOpenOrgModal={() => setIsOrgModalOpen(true)}
           onOpenShareModal={() => setIsShareModalOpen(true)}
+          onEditOrg={openEditOrgModal}
+          canEditOrg={!!currentOrg}
         />
 
         <CalendarGrid

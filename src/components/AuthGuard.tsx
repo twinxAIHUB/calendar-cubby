@@ -144,9 +144,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }
 
   return (
-    <div>
-      <div className="absolute top-4 right-4">
-        <Button variant="outline" onClick={handleSignOut}>
+    <div className="relative">
+      <div className="fixed top-4 right-4 z-50">
+        <Button variant="outline" onClick={handleSignOut} className="shadow-lg">
           Sign Out
         </Button>
       </div>

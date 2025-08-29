@@ -3,9 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, Check, X } from "lucide-react";
+import { Copy, Check, X, Link, Eye, Edit, Calendar, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { env } from "@/config/environment";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -119,87 +122,144 @@ export function ShareModal({ isOpen, onClose, organizationId, organizationName }
     }
   }, [isOpen, organizationId]);
 
-  const baseUrl = window.location.origin;
+  // Use environment configuration for base URL
+  const baseUrl = env.baseUrl;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Share Calendar - {organizationName}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <Link className="h-5 w-5 text-primary" />
+            Share Calendar - {organizationName}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Generate Links Section */}
           <div className="space-y-4">
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 onClick={() => generateShareLink('view')}
                 disabled={loading}
                 variant="outline"
+                className="flex-1 gap-2 h-12"
               >
-                Generate View-Only Link
+                <Eye className="h-4 w-4" />
+                <span className="hidden sm:inline">Generate View-Only Link</span>
+                <span className="sm:hidden">View-Only</span>
               </Button>
               <Button
                 onClick={() => generateShareLink('edit')}
                 disabled={loading}
                 variant="outline"
+                className="flex-1 gap-2 h-12"
               >
-                Generate Edit Access Link
+                <Edit className="h-4 w-4" />
+                <span className="hidden sm:inline">Generate Edit Access Link</span>
+                <span className="sm:hidden">Edit Access</span>
               </Button>
             </div>
 
-            {shareLinks.length > 0 && (
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium">Active Share Links</h4>
+            <p className="text-sm text-muted-foreground text-center">
+              View-only links allow stakeholders to see the calendar. Edit access links allow team members to create and modify posts.
+            </p>
+          </div>
+
+          <Separator />
+
+          {/* Active Links Section */}
+          {shareLinks.length > 0 && (
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Active Share Links ({shareLinks.length})
+              </h4>
+              
+              <div className="space-y-4">
                 {shareLinks.map((link) => {
                   const shareUrl = `${baseUrl}/?token=${link.token}`;
+                  const isExpired = link.expires_at && new Date(link.expires_at) < new Date();
+                  
                   return (
-                    <div key={link.id} className="border rounded-lg p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium capitalize">
-                          {link.access_type} Access
-                        </span>
+                    <div key={link.id} className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={link.access_type === 'edit' ? 'default' : 'secondary'}>
+                            {link.access_type === 'edit' ? (
+                              <Edit className="h-3 w-3 mr-1" />
+                            ) : (
+                              <Eye className="h-3 w-3 mr-1" />
+                            )}
+                            {link.access_type} Access
+                          </Badge>
+                          {isExpired && (
+                            <Badge variant="destructive">Expired</Badge>
+                          )}
+                        </div>
+                        
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => revokeShareLink(link.id)}
-                          className="h-6 w-6 p-0"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-4 w-4" />
                         </Button>
                       </div>
-                      <div className="flex gap-2">
-                        <Input
-                          value={shareUrl}
-                          readOnly
-                          className="font-mono text-xs"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => copyToClipboard(shareUrl, link.id)}
-                          className="shrink-0"
-                        >
-                          {copiedField === link.id ? (
-                            <Check className="h-4 w-4" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </Button>
+
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <Input
+                            value={shareUrl}
+                            readOnly
+                            className="font-mono text-xs bg-background"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyToClipboard(shareUrl, link.id)}
+                            className="shrink-0 h-9 px-3"
+                          >
+                            {copiedField === link.id ? (
+                              <Check className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                            <span className="hidden sm:inline ml-2">Copy</span>
+                          </Button>
+                        </div>
+                        
+                        {link.expires_at && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            Expires: {new Date(link.expires_at).toLocaleDateString()}
+                            {isExpired && (
+                              <span className="text-destructive">(Expired)</span>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      {link.expires_at && (
-                        <p className="text-xs text-gray-500">
-                          Expires: {new Date(link.expires_at).toLocaleDateString()}
-                        </p>
-                      )}
                     </div>
                   );
                 })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          <div className="flex justify-end">
-            <Button onClick={onClose}>Close</Button>
+          {/* No Links State */}
+          {shareLinks.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <Link className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">No active share links yet.</p>
+              <p className="text-xs">Generate a link above to start sharing your calendar.</p>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-4">
+            <Button onClick={onClose} variant="outline">
+              Close
+            </Button>
           </div>
         </div>
       </DialogContent>

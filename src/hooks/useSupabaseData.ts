@@ -82,8 +82,20 @@ export function useSupabaseData() {
 
   const createOrganization = async (name: string): Promise<Organization | null> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      console.log('Creating organization:', name);
+      
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error('User auth error:', userError);
+        throw userError;
+      }
+      
+      if (!user) {
+        console.error('No user found');
+        throw new Error('Not authenticated');
+      }
+      
+      console.log('User authenticated:', user.id);
 
       const { data, error } = await supabase
         .from('organizations')
@@ -91,8 +103,12 @@ export function useSupabaseData() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database insert error:', error);
+        throw error;
+      }
 
+      console.log('Organization created successfully:', data);
       await fetchOrganizations();
       
       toast({
