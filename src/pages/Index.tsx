@@ -74,12 +74,16 @@ const Index = () => {
 
   const verifyShareToken = async (token: string) => {
     try {
-      const response = await fetch(
-        `https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${token}&action=verify`
-      );
-      const data = await response.json();
+      const { data, error } = await supabase.functions.invoke('share', {
+        body: { token, action: 'verify' }
+      });
       
-      if (data.valid) {
+      if (error) {
+        console.error('Share token verification error:', error);
+        throw error;
+      }
+      
+      if (data?.valid) {
         setSelectedOrgId(data.organization_id);
         setAccessType(data.access_type);
         setAccessMode(data.access_type);
@@ -109,12 +113,16 @@ const Index = () => {
 
   const fetchSharedData = async (token: string) => {
     try {
-      const response = await fetch(
-        `https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${token}&action=get_data`
-      );
-      const data = await response.json();
+      const { data, error } = await supabase.functions.invoke('share', {
+        body: { token, action: 'get_data' }
+      });
       
-      if (data.organization && data.posts) {
+      if (error) {
+        console.error('Fetch shared data error:', error);
+        throw error;
+      }
+      
+      if (data?.organization && data?.posts) {
         setSharedData(data);
         setSharedOrgName(data.organization.name);
       }
@@ -174,38 +182,40 @@ const Index = () => {
         // Handle share mode operations via edge function
         if (selectedPost) {
           // Update existing post
-          const response = await fetch(`https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${shareToken}&action=update_post`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          const { data, error } = await supabase.functions.invoke('share', {
+            body: {
+              token: shareToken,
+              action: 'update_post',
               id: selectedPost.id,
               content: postData.content,
               media_url: postData.mediaUrl,
               status: postData.status,
-            })
+            }
           });
-          if (response.ok) {
-            toast({ title: "Success", description: "Post updated successfully" });
-            // Refresh shared data
-            fetchSharedData(shareToken);
-          }
+          
+          if (error) throw error;
+          
+          toast({ title: "Success", description: "Post updated successfully" });
+          // Refresh shared data
+          fetchSharedData(shareToken);
         } else {
           // Create new post
-          const response = await fetch(`https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${shareToken}&action=create_post`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          const { data, error } = await supabase.functions.invoke('share', {
+            body: {
+              token: shareToken,
+              action: 'create_post',
               date: postData.date,
               content: postData.content,
               media_url: postData.mediaUrl,
               status: postData.status,
-            })
+            }
           });
-          if (response.ok) {
-            toast({ title: "Success", description: "Post created successfully" });
-            // Refresh shared data
-            fetchSharedData(shareToken);
-          }
+          
+          if (error) throw error;
+          
+          toast({ title: "Success", description: "Post created successfully" });
+          // Refresh shared data
+          fetchSharedData(shareToken);
         }
       } else {
         // Normal authenticated mode
@@ -239,16 +249,19 @@ const Index = () => {
       try {
         if (shareMode && shareToken) {
           // Handle delete via edge function
-          const response = await fetch(`https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${shareToken}&action=delete_post`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: selectedPost.id })
+          const { data, error } = await supabase.functions.invoke('share', {
+            body: {
+              token: shareToken,
+              action: 'delete_post',
+              id: selectedPost.id
+            }
           });
-          if (response.ok) {
-            toast({ title: "Success", description: "Post deleted successfully" });
-            // Refresh shared data
-            fetchSharedData(shareToken);
-          }
+          
+          if (error) throw error;
+          
+          toast({ title: "Success", description: "Post deleted successfully" });
+          // Refresh shared data
+          fetchSharedData(shareToken);
         } else {
           await deletePost(selectedPost.id);
         }
@@ -262,11 +275,17 @@ const Index = () => {
   const handleAddComment = async (postId: string, content: string, createdBy: string) => {
     try {
       if (shareMode && shareToken) {
-        await fetch(`https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${shareToken}&action=add_comment`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ post_id: postId, content, created_by: createdBy })
+        const { data, error } = await supabase.functions.invoke('share', {
+          body: {
+            token: shareToken,
+            action: 'add_comment',
+            post_id: postId,
+            content,
+            created_by: createdBy
+          }
         });
+        
+        if (error) throw error;
       } else {
         await supabase.from('post_comments').insert({ post_id: postId, content, created_by: createdBy });
       }
@@ -279,11 +298,18 @@ const Index = () => {
   const handleAddReview = async (postId: string, status: 'approved' | 'rejected', reviewNotes?: string, reviewedBy?: string) => {
     try {
       if (shareMode && shareToken) {
-        await fetch(`https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${shareToken}&action=add_review`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ post_id: postId, status, review_notes: reviewNotes, reviewed_by: reviewedBy })
+        const { data, error } = await supabase.functions.invoke('share', {
+          body: {
+            token: shareToken,
+            action: 'add_review',
+            post_id: postId,
+            status,
+            review_notes: reviewNotes,
+            reviewed_by: reviewedBy
+          }
         });
+        
+        if (error) throw error;
       } else {
         await supabase.from('post_reviews').insert({ post_id: postId, status, review_notes: reviewNotes, reviewed_by: reviewedBy });
       }

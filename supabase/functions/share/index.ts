@@ -25,8 +25,19 @@ Deno.serve(async (req) => {
     );
 
     const url = new URL(req.url);
-    const token = url.searchParams.get('token');
-    const action = url.searchParams.get('action');
+    let token = url.searchParams.get('token');
+    let action = url.searchParams.get('action');
+
+    // If not in URL params, try to get from request body
+    if (!token || !action) {
+      try {
+        const body = await req.json();
+        token = token || body.token;
+        action = action || body.action;
+      } catch (e) {
+        console.log('No JSON body or failed to parse:', e);
+      }
+    }
 
     if (!token) {
       return new Response(
