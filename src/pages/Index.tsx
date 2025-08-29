@@ -151,22 +151,66 @@ const Index = () => {
   };
 
   const handleSavePost = async (postData: Omit<Post, 'id'>) => {
-    if (selectedPost) {
-      // Update existing post
-      await updatePost(selectedPost.id, {
-        content: postData.content,
-        mediaUrl: postData.mediaUrl,
-        status: postData.status,
-      });
-    } else {
-      // Create new post  
-      await createPost({
-        date: postData.date,
-        content: postData.content,
-        mediaUrl: postData.mediaUrl,
-        status: postData.status,
-        organizationId: postData.organizationId,
-      });
+    try {
+      if (shareMode && shareToken) {
+        // Handle share mode operations via edge function
+        if (selectedPost) {
+          // Update existing post
+          const response = await fetch(`https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${shareToken}&action=update_post`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: selectedPost.id,
+              content: postData.content,
+              media_url: postData.mediaUrl,
+              status: postData.status,
+            })
+          });
+          if (response.ok) {
+            toast({ title: "Success", description: "Post updated successfully" });
+            // Refresh shared data
+            fetchSharedData(shareToken);
+          }
+        } else {
+          // Create new post
+          const response = await fetch(`https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${shareToken}&action=create_post`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              date: postData.date,
+              content: postData.content,
+              media_url: postData.mediaUrl,
+              status: postData.status,
+            })
+          });
+          if (response.ok) {
+            toast({ title: "Success", description: "Post created successfully" });
+            // Refresh shared data
+            fetchSharedData(shareToken);
+          }
+        }
+      } else {
+        // Normal authenticated mode
+        if (selectedPost) {
+          // Update existing post
+          await updatePost(selectedPost.id, {
+            content: postData.content,
+            mediaUrl: postData.mediaUrl,
+            status: postData.status,
+          });
+        } else {
+          // Create new post  
+          await createPost({
+            date: postData.date,
+            content: postData.content,
+            mediaUrl: postData.mediaUrl,
+            status: postData.status,
+            organizationId: postData.organizationId,
+          });
+        }
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save post", variant: "destructive" });
     }
     setIsPostModalOpen(false);
     setSelectedPost(undefined);
@@ -174,7 +218,25 @@ const Index = () => {
 
   const handleDeletePost = async () => {
     if (selectedPost) {
-      await deletePost(selectedPost.id);
+      try {
+        if (shareMode && shareToken) {
+          // Handle delete via edge function
+          const response = await fetch(`https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${shareToken}&action=delete_post`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: selectedPost.id })
+          });
+          if (response.ok) {
+            toast({ title: "Success", description: "Post deleted successfully" });
+            // Refresh shared data
+            fetchSharedData(shareToken);
+          }
+        } else {
+          await deletePost(selectedPost.id);
+        }
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to delete post", variant: "destructive" });
+      }
       setSelectedPost(undefined);
     }
   };
@@ -241,7 +303,7 @@ const Index = () => {
           onSelectDate={(date) => {
             setSelectedDate(date);
             setSelectedPost(undefined);
-            if (accessMode !== 'view') {
+            if (!shareMode || accessType === 'edit') {
               setIsPostModalOpen(true);
             }
           }}
@@ -265,6 +327,7 @@ const Index = () => {
           organizationId={selectedOrgId}
           organizationName={displayOrgName}
           shareMode={shareMode}
+          accessType={accessType}
         />
 
         {!shareMode && (

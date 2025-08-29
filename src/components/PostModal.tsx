@@ -58,6 +58,7 @@ interface PostModalProps {
   organizationId: string;
   organizationName: string;
   shareMode?: boolean;
+  accessType?: 'view' | 'edit';
 }
 
 export function PostModal({
@@ -71,7 +72,8 @@ export function PostModal({
   selectedDate,
   organizationId,
   organizationName,
-  shareMode = false
+  shareMode = false,
+  accessType
 }: PostModalProps) {
   const [content, setContent] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
@@ -200,9 +202,9 @@ export function PostModal({
           </DialogTitle>
         </DialogHeader>
         
-        <Tabs defaultValue="edit" className="w-full">
+        <Tabs defaultValue={shareMode && accessType === 'view' ? 'preview' : 'edit'} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="edit">Edit Post</TabsTrigger>
+            {(!shareMode || accessType === 'edit') && <TabsTrigger value="edit">Edit Post</TabsTrigger>}
             <TabsTrigger value="preview">Preview</TabsTrigger>
             <TabsTrigger value="comments">Comments</TabsTrigger>
             <TabsTrigger value="review">Review</TabsTrigger>
