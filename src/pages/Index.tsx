@@ -47,6 +47,7 @@ const Index = () => {
   // Access control from URL parameters
   const [accessMode, setAccessMode] = useState<'full' | 'edit' | 'view'>('full');
   const [sharedOrgName, setSharedOrgName] = useState<string>('');
+  const [sharedData, setSharedData] = useState<{organization: any, posts: any[]}>({organization: null, posts: []});
   const { toast } = useToast();
 
   // Set initial organization selection
@@ -79,6 +80,8 @@ const Index = () => {
         setSelectedOrgId(data.organization_id);
         setAccessType(data.access_type);
         setAccessMode(data.access_type);
+        // Fetch shared data
+        fetchSharedData(token);
       }
     } catch (error) {
       console.error('Share token verification failed:', error);
@@ -86,9 +89,41 @@ const Index = () => {
     }
   };
 
+  const fetchSharedData = async (token: string) => {
+    try {
+      const response = await fetch(
+        `https://wntuvobvtdjtrlzrkghp.supabase.co/functions/v1/share?token=${token}&action=get_data`
+      );
+      const data = await response.json();
+      
+      if (data.organization && data.posts) {
+        setSharedData(data);
+        setSharedOrgName(data.organization.name);
+      }
+    } catch (error) {
+      console.error('Failed to fetch shared data:', error);
+    }
+  };
+
   const currentOrg = organizations.find(org => org.id === selectedOrgId);
   const displayOrgName = sharedOrgName || currentOrg?.name || 'Unknown Organization';
-  const currentPosts = posts.filter(post => post.organizationId === selectedOrgId);
+  
+  // Use shared data when in share mode, otherwise use regular data
+  const currentPosts = shareMode 
+    ? sharedData.posts.map(post => ({
+        id: post.id,
+        date: post.date,
+        content: post.content,
+        mediaUrl: post.media_url,
+        status: post.status,
+        organizationId: post.organization_id,
+        userId: post.user_id,
+        createdAt: post.created_at,
+        updatedAt: post.updated_at,
+        comments: post.post_comments || [],
+        reviews: post.post_reviews || []
+      }))
+    : posts.filter(post => post.organizationId === selectedOrgId);
 
   const handleCreateOrganization = async (name: string) => {
     const newOrg = await createOrganization(name);
