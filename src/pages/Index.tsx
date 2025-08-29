@@ -410,8 +410,8 @@ const Index = () => {
     </div>
   );
 
-  // Only wrap with AuthGuard if NOT in share mode or if share token is not validated
-  return shareMode && shareTokenValidated ? content : (
+  // Only wrap with AuthGuard if NOT in share mode at all
+  return shareMode ? content : (
     <AuthGuard>
       {content}
     </AuthGuard>

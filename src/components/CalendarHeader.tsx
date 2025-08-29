@@ -102,10 +102,12 @@ export function CalendarHeader({
         {/* Action Buttons */}
         <div className="flex gap-2">
           {accessMode === 'full' && (
-            <Button variant="outline" size="sm" onClick={onOpenOrgModal}>
-              <Plus className="h-4 w-4 mr-2" />
-              Organization
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={onOpenOrgModal}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Organization
+              </Button>
+            </>
           )}
           
           {selectedOrgId && accessMode === 'full' && (
