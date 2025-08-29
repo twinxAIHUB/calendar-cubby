@@ -30,6 +30,7 @@ const Index = () => {
   const [shareMode, setShareMode] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [accessType, setAccessType] = useState<'view' | 'edit'>('view');
+  const [shareTokenValidated, setShareTokenValidated] = useState(false);
   
   // Supabase data hooks
   const {
@@ -52,10 +53,10 @@ const Index = () => {
 
   // Set initial organization selection
   useEffect(() => {
-    if (organizations.length > 0 && !selectedOrgId) {
+    if (organizations.length > 0 && !selectedOrgId && !shareMode) {
       setSelectedOrgId(organizations[0].id);
     }
-  }, [organizations, selectedOrgId]);
+  }, [organizations, selectedOrgId, shareMode]);
 
   // Check URL parameters for share token
   useEffect(() => {
@@ -66,6 +67,8 @@ const Index = () => {
       setShareToken(token);
       setShareMode(true);
       verifyShareToken(token);
+    } else {
+      setShareTokenValidated(false);
     }
   }, []);
 
@@ -80,12 +83,27 @@ const Index = () => {
         setSelectedOrgId(data.organization_id);
         setAccessType(data.access_type);
         setAccessMode(data.access_type);
+        setShareTokenValidated(true);
         // Fetch shared data
         fetchSharedData(token);
+      } else {
+        setShareMode(false);
+        setShareTokenValidated(false);
+        toast({
+          title: "Invalid Link",
+          description: "The share link is invalid or has expired.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Share token verification failed:', error);
       setShareMode(false);
+      setShareTokenValidated(false);
+      toast({
+        title: "Error",
+        description: "Failed to verify share link.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -275,7 +293,15 @@ const Index = () => {
     }
   };
 
-  if (loading) {
+  if (shareMode && !shareTokenValidated) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (loading && !shareMode) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -352,7 +378,8 @@ const Index = () => {
     </div>
   );
 
-  return shareMode ? content : (
+  // Only wrap with AuthGuard if NOT in share mode or if share token is not validated
+  return shareMode && shareTokenValidated ? content : (
     <AuthGuard>
       {content}
     </AuthGuard>
